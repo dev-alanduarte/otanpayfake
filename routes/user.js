@@ -29,7 +29,8 @@ router.get('/profile', async (req, res) => {
             user: {
                 cpf: user.cpf,
                 name: user.name,
-                balance: user.balance
+                balance: user.balance,
+                account_number: user.account_number || null
             }
         });
     } catch (error) {

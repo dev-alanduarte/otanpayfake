@@ -436,6 +436,10 @@
                             <label for="userBalance">Saldo Inicial (R$)</label>
                             <input type="number" id="userBalance" step="0.01" value="0">
                         </div>
+                        <div class="form-group">
+                            <label for="userAccount">Conta *</label>
+                            <input type="text" id="userAccount" placeholder="123456-0" required>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Criar Usuário</button>
                 </form>
@@ -629,14 +633,27 @@
             }
         });
 
+        // Validação de Conta - apenas números e hífen
+        document.getElementById('userAccount').addEventListener('input', function(e) {
+            // Remove qualquer caractere que não seja número ou hífen
+            e.target.value = e.target.value.replace(/[^\d-]/g, '');
+        });
+
         // Criar usuário
         document.getElementById('createUserForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const name = document.getElementById('userName').value;
+            const name = document.getElementById('userName').value.trim();
             const cpf = document.getElementById('userCPF').value.replace(/\D/g, '');
-            const password = document.getElementById('userPassword').value;
+            const password = document.getElementById('userPassword').value.trim();
             const balance = parseFloat(document.getElementById('userBalance').value) || 0;
+            const account = document.getElementById('userAccount').value.trim();
+
+            // Validar se a conta foi preenchida
+            if (!account) {
+                showAlert('userAlert', 'O campo Conta é obrigatório!', 'error');
+                return;
+            }
 
             try {
                 const response = await fetch(`${API_BASE}/api/admin/users`, {
@@ -644,7 +661,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ cpf, name, password, balance })
+                    body: JSON.stringify({ cpf, name, password, balance, account_number: account })
                 });
 
                 const data = await response.json();
@@ -791,6 +808,7 @@
                             <tr>
                                 <th>Nome</th>
                                 <th>CPF</th>
+                                <th>Conta</th>
                                 <th>Saldo</th>
                                 <th>Transações</th>
                                 <th>Ações</th>
@@ -803,10 +821,12 @@
                     if (!user || !user.cpf) return;
                     const escapedCpf = user.cpf.replace(/'/g, "\\'");
                     const escapedName = escapeHtml(user.name || 'Sem nome');
+                    const escapedAccount = escapeHtml(user.account_number || '-');
                     html += `
                         <tr>
                             <td>${escapedName}</td>
                             <td>${formatCPF(user.cpf)}</td>
+                            <td>${escapedAccount}</td>
                             <td>${formatCurrency(parseFloat(user.balance) || 0)}</td>
                             <td>${user.transactionCount || 0}</td>
                             <td>

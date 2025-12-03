@@ -24,6 +24,7 @@ function initializeDatabase() {
             name TEXT NOT NULL,
             password TEXT NOT NULL,
             balance REAL DEFAULT 0,
+            account_number TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `, (err) => {
@@ -31,6 +32,23 @@ function initializeDatabase() {
             console.error('Erro ao criar tabela users:', err.message);
         } else {
             console.log('✅ Tabela users criada/verificada');
+            // Verificar se a coluna account_number existe e adicionar se não existir
+            db.all("PRAGMA table_info(users)", [], (err, columns) => {
+                if (err) {
+                    console.error('Erro ao verificar colunas:', err.message);
+                } else {
+                    const hasAccountNumber = columns.some(col => col.name === 'account_number');
+                    if (!hasAccountNumber) {
+                        db.run(`ALTER TABLE users ADD COLUMN account_number TEXT`, (err) => {
+                            if (err) {
+                                console.error('Erro ao adicionar coluna account_number:', err.message);
+                            } else {
+                                console.log('✅ Coluna account_number adicionada');
+                            }
+                        });
+                    }
+                }
+            });
         }
     });
 
@@ -98,14 +116,14 @@ const dbHelpers = {
     },
 
     // Criar usuário
-    createUser: (cpf, name, password, balance = 0) => {
+    createUser: (cpf, name, password, balance = 0, account_number = null) => {
         return new Promise((resolve, reject) => {
             db.run(
-                'INSERT INTO users (cpf, name, password, balance) VALUES (?, ?, ?, ?)',
-                [cpf, name, password, balance],
+                'INSERT INTO users (cpf, name, password, balance, account_number) VALUES (?, ?, ?, ?, ?)',
+                [cpf, name, password, balance, account_number],
                 function(err) {
                     if (err) reject(err);
-                    else resolve({ id: this.lastID, cpf, name, balance });
+                    else resolve({ id: this.lastID, cpf, name, balance, account_number });
                 }
             );
         });
@@ -128,6 +146,10 @@ const dbHelpers = {
             if (updates.balance !== undefined) {
                 fields.push('balance = ?');
                 values.push(updates.balance);
+            }
+            if (updates.account_number !== undefined) {
+                fields.push('account_number = ?');
+                values.push(updates.account_number);
             }
             
             values.push(cpf);

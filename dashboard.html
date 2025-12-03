@@ -380,7 +380,7 @@
                 <button class="toggle-balance" onclick="toggleBalance()">👁️</button>
             </div>
             <div class="balance-amount" id="balanceAmount">R$ 12.547,89</div>
-            <div class="account-info">Agência 0001 • Conta 8521147-6</div>
+            <div class="account-info" id="accountInfo">Agência 0001 • Conta -</div>
         </div>
 
         <div class="quick-actions">
@@ -442,6 +442,7 @@
             name: 'Carregando...',
             cpf: currentUserCPF,
             balance: 0,
+            account_number: null,
             transactions: []
         };
 
@@ -455,6 +456,7 @@
                 if (profileData.success) {
                     currentUser.name = profileData.user.name;
                     currentUser.balance = profileData.user.balance || 0;
+                    currentUser.account_number = profileData.user.account_number || null;
                 }
 
                 // Buscar transações
@@ -468,12 +470,17 @@
                 // Atualizar interface
                 const userNameElement = document.querySelector('.user-name');
                 const balanceElement = document.getElementById('balanceAmount');
+                const accountInfoElement = document.getElementById('accountInfo');
                 if (userNameElement) {
                     userNameElement.textContent = `Olá, ${currentUser.name || 'Usuário'}`;
                 }
                 if (balanceElement) {
                     balanceElement.textContent =
                         (currentUser.balance || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                }
+                if (accountInfoElement) {
+                    const accountNumber = currentUser.account_number || '-';
+                    accountInfoElement.textContent = `Agência 0001 • Conta ${accountNumber}`;
                 }
 
                 // Renderizar transações

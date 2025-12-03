@@ -22,12 +22,19 @@ router.get('/users', async (req, res) => {
 // POST /api/admin/users - Criar novo usuário
 router.post('/users', async (req, res) => {
     try {
-        const { cpf, name, password, balance } = req.body;
+        const { cpf, name, password, balance, account_number } = req.body;
 
         if (!cpf || !name || !password) {
             return res.status(400).json({ 
                 success: false,
                 error: 'CPF, nome e senha são obrigatórios' 
+            });
+        }
+
+        if (!account_number || account_number.trim() === '') {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Número da conta é obrigatório' 
             });
         }
 
@@ -43,7 +50,7 @@ router.post('/users', async (req, res) => {
             });
         }
 
-        const user = await dbHelpers.createUser(cpfClean, name, password, initialBalance);
+        const user = await dbHelpers.createUser(cpfClean, name, password, initialBalance, account_number);
         res.json({ 
             success: true, 
             user 
