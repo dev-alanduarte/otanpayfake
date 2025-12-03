@@ -5,7 +5,6 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Middlewares
 app.use(cors());
@@ -51,9 +50,8 @@ app.get('/dashboard', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor rodando em http://0.0.0.0:${PORT}`);
-    console.log(`📝 Ambiente: ${NODE_ENV}`);
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
     console.log(`📝 Login Usuário: http://localhost:${PORT}/login`);
     console.log(`🔐 Login Admin: http://localhost:${PORT}/admin-login`);
     console.log(`👨‍💼 Admin Panel: http://localhost:${PORT}/admin`);
