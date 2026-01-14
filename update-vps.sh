@@ -48,10 +48,21 @@ if [ -d ".git" ]; then
         git clean -fd
     fi
     
-    # Atualizar código
+    # Atualizar código (forçar sobrescrever mudanças locais)
     echo -e "${YELLOW}📥 Atualizando código do GitHub...${NC}"
     git fetch origin
-    git pull origin main
+    
+    # Descartar qualquer mudança local antes do pull
+    git reset --hard origin/main
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Código atualizado${NC}"
+    else
+        echo -e "${RED}❌ Erro ao atualizar código${NC}"
+        echo -e "${YELLOW}Tentando método alternativo...${NC}"
+        git stash
+        git pull origin main
+    fi
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ Código atualizado${NC}"
