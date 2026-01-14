@@ -10,6 +10,9 @@ const { protectHTMLRoute } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configurar trust proxy para rate limiting funcionar corretamente
+app.set('trust proxy', true);
+
 // Middlewares de segurança
 app.use(helmet({
     contentSecurityPolicy: false, // Desabilitado para permitir scripts inline nos HTMLs
