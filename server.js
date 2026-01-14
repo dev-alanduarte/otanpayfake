@@ -96,7 +96,7 @@ app.get('/admin', async (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     
     // Verificar se tem cookie de autenticação
-    const token = req.cookies?.authToken;
+    const token = req.cookies && req.cookies.authToken ? req.cookies.authToken : null;
     
     if (!token) {
         // Não autenticado - mostrar página de login

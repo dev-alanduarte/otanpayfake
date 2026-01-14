@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'otan-fintech-secret-key-change-in-
 const authenticate = async (req, res, next) => {
     try {
         // Apenas verificar cookie HTTP-only (mais seguro)
-        const token = req.cookies?.authToken;
+        const token = req.cookies && req.cookies.authToken ? req.cookies.authToken : null;
         
         if (!token) {
             return res.status(401).json({
@@ -83,7 +83,7 @@ const generateToken = (user) => {
 const protectHTMLRoute = async (req, res, next) => {
     try {
         // Apenas verificar cookie HTTP-only (mais seguro)
-        const token = req.cookies?.authToken;
+        const token = req.cookies && req.cookies.authToken ? req.cookies.authToken : null;
 
         if (!token) {
             return res.redirect('/admin');
