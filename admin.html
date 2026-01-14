@@ -577,24 +577,43 @@
         // API Base URL
         const API_BASE = window.location.origin;
 
-        // Verificar se é admin - redireciona para login de admin se não estiver logado
+        // Função para fazer requisições autenticadas
+        // Usa cookie HTTP-only automaticamente (mais seguro)
+        async function authenticatedFetch(url, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+
+            const response = await fetch(url, {
+                ...options,
+                headers,
+                credentials: 'include' // Importante: envia cookie HTTP-only automaticamente
+            });
+
+            // Se token expirou ou inválido, redirecionar para /admin (que mostrará login)
+            if (response.status === 401) {
+                localStorage.clear();
+                window.location.href = '/admin';
+                throw new Error('Sessão expirada');
+            }
+
+            return response;
+        }
+
+        // Verificação no frontend é apenas backup - o backend já protege a rota
+        // Se chegou aqui, significa que passou pela verificação do backend
+        // Apenas verificar se tem dados básicos no localStorage para uso da interface
         (function checkAdminAccess() {
             const currentUserCPF = localStorage.getItem('currentUser');
             const isAdmin = localStorage.getItem('isAdmin');
             
-            // Se não tem usuário logado OU não é admin, redireciona para login de admin
+            // Se não tem dados básicos no localStorage, pode ser primeira carga
+            // O backend já verificou autenticação antes de servir esta página
             if (!currentUserCPF || isAdmin !== 'true') {
-                // Verifica se é o CPF do admin mas localStorage não estava salvo
-                if (currentUserCPF === '12300012300') {
-                    // É admin - corrige automaticamente
-                    localStorage.setItem('isAdmin', 'true');
-                    localStorage.setItem('userName', 'Admin');
-                    return; // Continua carregando a página
-                } else {
-                    // Não é admin ou não está logado - redireciona para login de admin
-                    window.location.href = '/admin-login';
-                    return;
-                }
+                // Tentar buscar dados do servidor ou redirecionar para login
+                // Mas como o backend já protegeu, se chegou aqui é válido
+                console.log('Carregando dados do admin...');
             }
         })();
 
@@ -615,11 +634,20 @@
             updateUserSelects();
         }
 
-        function logout() {
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('userName');
-            localStorage.removeItem('isAdmin');
-            window.location.href = '/admin-login';
+        async function logout() {
+            try {
+                // Chamar API de logout para limpar cookie
+                await fetch(`${API_BASE}/api/auth/logout`, {
+                    method: 'POST',
+                    credentials: 'include' // Importante para enviar cookies
+                });
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+            }
+            // Limpar localStorage
+            localStorage.clear();
+            // Redirecionar para /admin (que mostrará login)
+            window.location.href = '/admin';
         }
 
         // Máscara de CPF
@@ -656,11 +684,8 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users`, {
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify({ cpf, name, password, balance, account_number: account })
                 });
 
@@ -698,7 +723,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/transactions`, {
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/transactions`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -745,11 +770,8 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users/${cpf}`, {
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users/${cpf}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify({ balance: newBalance })
                 });
 
@@ -775,7 +797,7 @@
             const container = document.getElementById('usersTableContainer');
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users`);
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users`);
                 const data = await response.json();
 
                 if (!data.success) {
@@ -793,7 +815,7 @@
                 // Buscar contagem de transações para cada usuário
                 const usersWithTransactions = await Promise.all(
                     users.map(async (user) => {
-                        const transResponse = await fetch(`${API_BASE}/api/admin/users/${user.cpf}/transactions`);
+                        const transResponse = await authenticatedFetch(`${API_BASE}/api/admin/users/${user.cpf}/transactions`);
                         const transData = await transResponse.json();
                         return {
                             ...user,
@@ -850,7 +872,7 @@
         // Editar usuário
         async function editUser(cpf) {
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users`);
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users`);
                 const data = await response.json();
                 const user = data.users.find(u => u.cpf === cpf);
 
@@ -887,11 +909,8 @@
                     updateData.password = password;
                 }
 
-                const response = await fetch(`${API_BASE}/api/admin/users/${cpf}`, {
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users/${cpf}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify(updateData)
                 });
 
@@ -916,7 +935,7 @@
             if (!confirm('Tem certeza que deseja excluir este usuário? Todas as transações também serão excluídas.')) return;
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users/${cpf}`, {
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users/${cpf}`, {
                     method: 'DELETE'
                 });
 
@@ -941,7 +960,7 @@
             const selects = ['transUserCPF', 'viewTransUserCPF', 'balanceUserCPF'];
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users`);
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users`);
                 const data = await response.json();
 
                 if (!data.success) {
@@ -980,7 +999,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users/${cpf}/transactions`);
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users/${cpf}/transactions`);
                 const data = await response.json();
 
                 if (!data.success || !data.transactions || data.transactions.length === 0) {
@@ -1020,7 +1039,7 @@
             if (!confirm('Excluir esta transação?')) return;
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/transactions/${transId}?userCPF=${cpf}`, {
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/transactions/${transId}?userCPF=${cpf}`, {
                     method: 'DELETE'
                 });
 
@@ -1049,7 +1068,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/admin/users`);
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/users`);
                 const data = await response.json();
                 const user = data.users.find(u => u.cpf === cpf);
 
@@ -1067,7 +1086,7 @@
         // Atualizar estatísticas
         async function updateStats() {
             try {
-                const response = await fetch(`${API_BASE}/api/admin/stats`);
+                const response = await authenticatedFetch(`${API_BASE}/api/admin/stats`);
                 const data = await response.json();
 
                 if (data.success && data.stats) {

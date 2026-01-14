@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { dbHelpers } = require('../database');
+const { authenticate, requireAdmin } = require('../middleware/auth');
+
+// Aplicar autenticação e autorização admin em todas as rotas
+router.use(authenticate);
+router.use(requireAdmin);
 
 // GET /api/admin/users - Listar todos os usuários
 router.get('/users', async (req, res) => {

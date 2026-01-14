@@ -42,12 +42,18 @@ O servidor estará rodando em: `http://localhost:3000`
 ## 🌐 Acessos
 
 ### Login Admin (Padrão)
-- **CPF:** 000.000.000-00
-- **Senha:** admin123
+- **CPF:** 123.000.123-00
+- **Senha:** adminOtan123#
 
 ### Login de Usuário
 - Use o painel admin para criar usuários
 - Faça login com o CPF e senha criados
+
+### Recuperação de Acesso Admin
+Se você perder o acesso ao admin, execute:
+```bash
+node scripts/recover-admin.js
+```
 
 ## 📁 Estrutura do Projeto
 
@@ -55,26 +61,40 @@ O servidor estará rodando em: `http://localhost:3000`
 ├── server.js          # Servidor Express e rotas da API
 ├── database.js        # Configuração do banco SQLite
 ├── package.json       # Dependências do projeto
+├── middleware/        # Middlewares de autenticação
+│   └── auth.js        # Middleware JWT e autorização
+├── routes/            # Rotas da API
+│   ├── auth.js        # Rotas de autenticação
+│   ├── admin.js       # Rotas administrativas
+│   └── user.js        # Rotas do usuário
+├── scripts/           # Scripts utilitários
+│   └── recover-admin.js # Script de recuperação de acesso admin
 ├── login.html         # Página de login
+├── admin-login.html   # Página de login admin
 ├── admin.html         # Painel administrativo
 ├── dashboard.html     # Dashboard do usuário
+├── SECURITY.md        # Documentação de segurança
 └── database.sqlite    # Banco de dados (criado automaticamente)
 ```
 
 ## 🔌 API Endpoints
 
 ### Autenticação
-- `POST /api/login` - Fazer login
+- `POST /api/auth/login` - Fazer login (retorna token JWT)
+- `POST /api/auth/logout` - Fazer logout
 
-### Admin
+### Admin (Requerem autenticação JWT + role admin)
 - `GET /api/admin/users` - Listar todos os usuários
 - `POST /api/admin/users` - Criar novo usuário
+- `GET /api/admin/users/:cpf` - Buscar usuário específico
 - `PUT /api/admin/users/:cpf` - Atualizar usuário
 - `DELETE /api/admin/users/:cpf` - Deletar usuário
 - `POST /api/admin/transactions` - Criar transação
 - `GET /api/admin/users/:cpf/transactions` - Listar transações de um usuário
 - `DELETE /api/admin/transactions/:id` - Deletar transação
 - `GET /api/admin/stats` - Estatísticas gerais
+
+**Nota:** Todas as rotas admin requerem header `Authorization: Bearer <token>`
 
 ### Usuário
 - `GET /api/user/profile` - Buscar perfil do usuário logado
@@ -144,14 +164,34 @@ O servidor estará rodando em: `http://localhost:3000`
 
 ## 🔒 Segurança
 
-⚠️ **IMPORTANTE:** Este é um sistema fake para demonstração. Para produção, considere:
+### ✅ Melhorias de Segurança Implementadas
 
-- Usar HTTPS
-- Implementar autenticação JWT
-- Criptografar senhas com bcrypt (já incluído)
-- Validar e sanitizar todas as entradas
-- Implementar rate limiting
-- Usar variáveis de ambiente para configurações sensíveis
+- ✅ **Hash de senhas** com bcrypt (salt rounds: 10)
+- ✅ **Autenticação JWT** com tokens que expiram em 24h
+- ✅ **Autorização por roles** (admin/user)
+- ✅ **Rate limiting** para prevenir força bruta (5 tentativas/15min no login)
+- ✅ **Helmet.js** para headers de segurança
+- ✅ **CORS configurado** de forma restritiva
+- ✅ **Validação de entrada** melhorada
+- ✅ **Middleware de autenticação** protegendo todas as rotas admin
+
+### 📋 Configuração de Produção
+
+1. **Crie um arquivo `.env`** na raiz do projeto:
+```env
+PORT=3000
+JWT_SECRET=sua-chave-secreta-super-segura-aqui-mude-em-producao
+ALLOWED_ORIGINS=https://seudominio.com
+```
+
+2. **Mude a JWT_SECRET** para uma chave forte e única
+   - Use: `openssl rand -base64 32` para gerar uma chave segura
+
+3. **Use HTTPS** em produção (certificado SSL)
+
+4. **Configure firewall** para limitar acesso ao servidor
+
+⚠️ **IMPORTANTE:** Veja `SECURITY.md` para mais detalhes sobre segurança.
 
 ## 📝 Notas
 

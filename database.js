@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const bcrypt = require('bcrypt');
 
 // Caminho do banco de dados
 const DB_PATH = path.join(__dirname, 'database.sqlite');
@@ -25,6 +26,7 @@ function initializeDatabase() {
             password TEXT NOT NULL,
             balance REAL DEFAULT 0,
             account_number TEXT,
+            role TEXT DEFAULT 'user',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `, (err) => {
@@ -32,18 +34,31 @@ function initializeDatabase() {
             console.error('Erro ao criar tabela users:', err.message);
         } else {
             console.log('✅ Tabela users criada/verificada');
-            // Verificar se a coluna account_number existe e adicionar se não existir
+            // Verificar e adicionar colunas se não existirem
             db.all("PRAGMA table_info(users)", [], (err, columns) => {
                 if (err) {
                     console.error('Erro ao verificar colunas:', err.message);
                 } else {
-                    const hasAccountNumber = columns.some(col => col.name === 'account_number');
-                    if (!hasAccountNumber) {
+                    const columnNames = columns.map(col => col.name);
+                    
+                    // Adicionar account_number se não existir
+                    if (!columnNames.includes('account_number')) {
                         db.run(`ALTER TABLE users ADD COLUMN account_number TEXT`, (err) => {
                             if (err) {
                                 console.error('Erro ao adicionar coluna account_number:', err.message);
                             } else {
                                 console.log('✅ Coluna account_number adicionada');
+                            }
+                        });
+                    }
+                    
+                    // Adicionar role se não existir
+                    if (!columnNames.includes('role')) {
+                        db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`, (err) => {
+                            if (err) {
+                                console.error('Erro ao adicionar coluna role:', err.message);
+                            } else {
+                                console.log('✅ Coluna role adicionada');
                             }
                         });
                     }
@@ -73,23 +88,30 @@ function initializeDatabase() {
         }
     });
 
-    // Criar usuário admin padrão se não existir
-    db.get('SELECT * FROM users WHERE cpf = ?', ['12300012300'], (err, row) => {
+    // Verificar se já existe algum admin (não criar se já existir)
+    db.get('SELECT * FROM users WHERE role = ?', ['admin'], (err, row) => {
         if (err) {
             console.error('Erro ao verificar admin:', err.message);
         } else if (!row) {
-            db.run(
-                'INSERT INTO users (cpf, name, password, balance) VALUES (?, ?, ?, ?)',
-                ['12300012300', 'Admin', 'adminOtan123#', 0],
-                (err) => {
-                    if (err) {
-                        console.error('Erro ao criar admin:', err.message);
-                    } else {
-                        console.log('✅ Usuário admin criado (CPF: 123.000.123-00, Senha: adminOtan123#)');
+            // Só criar admin padrão se não existir nenhum admin
+            // Hash da senha padrão
+            bcrypt.hash('adminOtan123#', 10).then(hashedPassword => {
+                db.run(
+                    'INSERT INTO users (cpf, name, password, balance, role) VALUES (?, ?, ?, ?, ?)',
+                    ['12300012300', 'Admin', hashedPassword, 0, 'admin'],
+                    (err) => {
+                        if (err) {
+                            console.error('Erro ao criar admin:', err.message);
+                        } else {
+                            console.log('✅ Usuário admin criado (CPF: 123.000.123-00, Senha: adminOtan123#)');
+                        }
                     }
-                }
-            );
+                );
+            }).catch(hashErr => {
+                console.error('Erro ao fazer hash da senha:', hashErr.message);
+            });
         }
+        // Se já existe admin, não fazer nada
     });
 }
 
@@ -98,17 +120,11 @@ const dbHelpers = {
     // Buscar usuário por CPF
     getUserByCPF: (cpf) => {
         return new Promise((resolve, reject) => {
-            console.log(`🔍 Buscando usuário com CPF: ${cpf}`);
             db.get('SELECT * FROM users WHERE cpf = ?', [cpf], (err, row) => {
                 if (err) {
                     console.error(`❌ Erro ao buscar usuário:`, err);
                     reject(err);
                 } else {
-                    if (row) {
-                        console.log(`✅ Usuário encontrado: ${row.name} (CPF: ${row.cpf})`);
-                    } else {
-                        console.log(`❌ Nenhum usuário encontrado com CPF: ${cpf}`);
-                    }
                     resolve(row);
                 }
             });
@@ -116,53 +132,79 @@ const dbHelpers = {
     },
 
     // Criar usuário
-    createUser: (cpf, name, password, balance = 0, account_number = null) => {
-        return new Promise((resolve, reject) => {
-            db.run(
-                'INSERT INTO users (cpf, name, password, balance, account_number) VALUES (?, ?, ?, ?, ?)',
-                [cpf, name, password, balance, account_number],
-                function(err) {
-                    if (err) reject(err);
-                    else resolve({ id: this.lastID, cpf, name, balance, account_number });
-                }
-            );
+    createUser: async (cpf, name, password, balance = 0, account_number = null) => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                // Hash da senha
+                const hashedPassword = await bcrypt.hash(password, 10);
+                db.run(
+                    'INSERT INTO users (cpf, name, password, balance, account_number, role) VALUES (?, ?, ?, ?, ?, ?)',
+                    [cpf, name, hashedPassword, balance, account_number, 'user'],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve({ id: this.lastID, cpf, name, balance, account_number });
+                    }
+                );
+            } catch (error) {
+                reject(error);
+            }
         });
     },
 
     // Atualizar usuário
-    updateUser: (cpf, updates) => {
-        return new Promise((resolve, reject) => {
-            const fields = [];
-            const values = [];
-            
-            if (updates.name) {
-                fields.push('name = ?');
-                values.push(updates.name);
-            }
-            if (updates.password) {
-                fields.push('password = ?');
-                values.push(updates.password);
-            }
-            if (updates.balance !== undefined) {
-                fields.push('balance = ?');
-                values.push(updates.balance);
-            }
-            if (updates.account_number !== undefined) {
-                fields.push('account_number = ?');
-                values.push(updates.account_number);
-            }
-            
-            values.push(cpf);
-            
-            db.run(
-                `UPDATE users SET ${fields.join(', ')} WHERE cpf = ?`,
-                values,
-                function(err) {
-                    if (err) reject(err);
-                    else resolve({ changes: this.changes });
+    updateUser: async (cpf, updates) => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const fields = [];
+                const values = [];
+                
+                if (updates.name) {
+                    fields.push('name = ?');
+                    values.push(updates.name);
                 }
-            );
+                if (updates.password) {
+                    // Hash da senha antes de atualizar
+                    const hashedPassword = await bcrypt.hash(updates.password, 10);
+                    fields.push('password = ?');
+                    values.push(hashedPassword);
+                }
+                if (updates.balance !== undefined) {
+                    fields.push('balance = ?');
+                    values.push(updates.balance);
+                }
+                if (updates.account_number !== undefined) {
+                    fields.push('account_number = ?');
+                    values.push(updates.account_number);
+                }
+                if (updates.role) {
+                    fields.push('role = ?');
+                    values.push(updates.role);
+                }
+                
+                if (fields.length === 0) {
+                    resolve({ changes: 0 });
+                    return;
+                }
+                
+                values.push(cpf);
+                
+                db.run(
+                    `UPDATE users SET ${fields.join(', ')} WHERE cpf = ?`,
+                    values,
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve({ changes: this.changes });
+                    }
+                );
+            } catch (error) {
+                reject(error);
+            }
         });
+    },
+    
+    // Verificar senha
+    verifyPassword: async (plainPassword, hashedPassword) => {
+        return await bcrypt.compare(plainPassword, hashedPassword);
     },
 
     // Deletar usuário

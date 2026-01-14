@@ -270,6 +270,10 @@
             <div class="back-link">
                 <a href="/login">← Voltar para login de usuário</a>
             </div>
+            
+            <div class="back-link" style="margin-top: 10px;">
+                <a href="/admin">↻ Recarregar</a>
+            </div>
 
             <div class="security-info">
                 <p>
@@ -338,6 +342,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include', // Importante para salvar cookie
                     body: JSON.stringify({ cpf, password })
                 });
 
@@ -346,12 +351,15 @@
                 if (data.success && data.user.isAdmin) {
                     showAlert('Login admin realizado com sucesso! Redirecionando...', 'success');
                     
-                    // Salvar dados do admin no localStorage
+                    // Salvar token e dados do admin no localStorage
+                    localStorage.setItem('authToken', data.token);
                     localStorage.setItem('currentUser', data.user.cpf);
                     localStorage.setItem('userName', data.user.name);
                     localStorage.setItem('isAdmin', 'true');
+                    localStorage.setItem('userRole', data.user.role);
                     
                     setTimeout(() => {
+                        // Recarregar a mesma página (que agora mostrará o painel)
                         window.location.href = '/admin';
                     }, 1500);
                 } else {

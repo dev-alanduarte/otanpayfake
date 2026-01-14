@@ -407,10 +407,14 @@
                 if (data.success) {
                     showAlert('Login realizado com sucesso! Redirecionando...', 'success');
                     
-                    // Salvar dados do usuário no localStorage
+                    // Salvar token e dados do usuário no localStorage
+                    if (data.token) {
+                        localStorage.setItem('authToken', data.token);
+                    }
                     localStorage.setItem('currentUser', data.user.cpf);
                     localStorage.setItem('userName', data.user.name);
                     localStorage.setItem('isAdmin', data.user.isAdmin ? 'true' : 'false');
+                    localStorage.setItem('userRole', data.user.role || 'user');
                     
                     setTimeout(() => {
                         if (data.user.isAdmin) {

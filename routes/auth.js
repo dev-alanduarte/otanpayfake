@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { dbHelpers } = require('../database');
+const { generateToken } = require('../middleware/auth');
 
 // POST /api/auth/login - Fazer login
 router.post('/login', async (req, res) => {
@@ -21,36 +22,51 @@ router.post('/login', async (req, res) => {
         const user = await dbHelpers.getUserByCPF(cpfClean);
 
         if (!user) {
-            console.log(`❌ Usuário não encontrado para CPF: ${cpfClean}`);
             return res.status(401).json({ 
                 success: false,
                 error: 'CPF ou senha incorretos' 
             });
         }
 
-        console.log(`✅ Usuário encontrado: ${user.name} (CPF: ${user.cpf})`);
-        console.log(`🔐 Verificando senha...`);
-
-        if (user.password !== password) {
-            console.log(`❌ Senha incorreta. Esperada: ${user.password}, Recebida: ${password}`);
+        // Verificar senha com bcrypt
+        const isPasswordValid = await dbHelpers.verifyPassword(password, user.password);
+        
+        if (!isPasswordValid) {
             return res.status(401).json({ 
                 success: false,
                 error: 'CPF ou senha incorretos' 
             });
         }
 
-        console.log(`✅ Login bem-sucedido para: ${user.name}`);
+        // Verificar se é admin
+        const isAdmin = (user.role || '').toLowerCase() === 'admin';
 
-        // Verificar se é admin (CPF do admin)
-        const isAdmin = user.cpf === '12300012300';
+        // Gerar token JWT
+        const token = generateToken({
+            cpf: user.cpf,
+            name: user.name,
+            role: user.role || 'user'
+        });
+
+        // Se for admin, salvar token em cookie HTTP-only para proteção da rota /admin
+        if (isAdmin) {
+            res.cookie('authToken', token, {
+                httpOnly: true, // Não acessível via JavaScript (mais seguro)
+                secure: process.env.NODE_ENV === 'production', // HTTPS apenas em produção
+                sameSite: 'strict', // Proteção contra CSRF
+                maxAge: 24 * 60 * 60 * 1000 // 24 horas
+            });
+        }
 
         res.json({
             success: true,
+            token,
             user: {
                 cpf: user.cpf,
                 name: user.name,
                 balance: user.balance || 0,
-                isAdmin: isAdmin
+                isAdmin: isAdmin,
+                role: user.role || 'user'
             }
         });
     } catch (error) {
@@ -62,8 +78,10 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// POST /api/auth/logout - Fazer logout (opcional, apenas para limpar sessão no futuro)
+// POST /api/auth/logout - Fazer logout
 router.post('/logout', (req, res) => {
+    // Limpar cookie de autenticação
+    res.clearCookie('authToken');
     res.json({ 
         success: true, 
         message: 'Logout realizado com sucesso' 
